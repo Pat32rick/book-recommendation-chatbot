@@ -3,6 +3,15 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 import gradio as gr
 import requests
+import google.generativeai as genai
+from collections import deque
+
+# Configure Google Gemini API
+GOOGLE_API_KEY = ""  # Leave empty; user enters it in UI
+genai.configure(api_key=GOOGLE_API_KEY)
+
+# Store recent queries and responses
+context_cache = deque(maxlen=5)  # Keep the last 5 conversations
 
 # Sample book dataset
 books = [
@@ -35,59 +44,73 @@ def search_books(query, genre=None, author=None, top_k=2):
         results = [book for book in results if book["author"].lower() == author.lower()]
     return results[:top_k]
 
-def fetch_books_from_google(query, api_key, max_results=5):
-    """ Fetches books from Google Books API based on a search query. """
-    if not api_key:
-        return []
-    url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults={max_results}&key={api_key}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        books = []
-        for item in data.get("items", []):
-            volume_info = item.get("volumeInfo", {})
-            books.append({
-                "title": volume_info.get("title", "Unknown Title"),
-                "author": ", ".join(volume_info.get("authors", ["Unknown Author"])),
-                "genre": volume_info.get("categories", ["Unknown Genre"])[0] if "categories" in volume_info else "Unknown",
-                "description": volume_info.get("description", "No description available.")
-            })
-        return books
-    return []
+def generate_book_recommendation_response(query, books, api_key):
+    """
+    Uses Google Gemini AI to generate a response explaining the book recommendations with streaming output and context caching.
+    """
+    if not books:
+        yield "Sorry, I couldn't find any matching books. Try another query!"
+        return
 
-def get_recommendations(query, api_key, genre=None, author=None, top_k=3):
-    """ First searches locally using FAISS, then fetches from Google Books API if needed. """
-    local_results = search_books(query, genre, author, top_k)
-    if len(local_results) < top_k:
-        extra_needed = top_k - len(local_results)
-        google_books = fetch_books_from_google(query, api_key, max_results=extra_needed)
-        local_results.extend(google_books)
-    return local_results
+    genai.configure(api_key=api_key)  # Set user-provided API key
+
+    book_summaries = "\n".join([f"- **{book['title']}** by {book['author']} (Genre: {book['genre']})" for book in books])
+    history = "\n".join(context_cache)
+
+    prompt = f"""
+    You are an expert book recommender. Here is the conversation history:
+    
+    {history}
+
+    A user asked: "{query}".
+    Based on this, here are some book recommendations:
+
+    {book_summaries}
+
+    Now, generate a friendly response explaining why these books were recommended.
+    """
+
+    try:
+        model = genai.GenerativeModel("gemini-pro")
+        response = model.generate_content(prompt, stream=True)
+        
+        response_text = ""
+        for chunk in response:
+            response_text += chunk.text
+            yield chunk.text  # Stream response token-by-token
+        
+        # Store response in cache
+        context_cache.append(f"User: {query}\nBot: {response_text}")
+    
+    except Exception as e:
+        yield f"Error generating response: {str(e)}"
 
 def book_chatbot(query, api_key, genre=None, author=None, top_k=3):
-    """ Handles user queries and returns book recommendations. """
+    """
+    Handles user queries, retrieves books, and generates a response.
+    """
     if not api_key:
         return "❌ Please enter your Google Books API key to use live search!"
-    results = get_recommendations(query, api_key, genre, author, top_k)
-    if not results:
-        return "Sorry, I couldn't find any matching books. Try another query!"
-    response = "**📚 Recommended Books:**\n\n"
-    for book in results:
-        response += f"🔹 **{book['title']}** by {book['author']} *(Genre: {book['genre']})*\n"
-        response += f"📝 {book['description'][:250]}...\n\n"
-    return response
+
+    books = search_books(query, genre, author, top_k)
+    return generate_book_recommendation_response(query, books, api_key)
 
 with gr.Blocks() as demo:
-    gr.Markdown("# 📖 AI Book Recommendation Chatbot")
+    gr.Markdown("# 📖 AI Book Recommendation Chatbot (Powered by Google Gemini)")
+    
     with gr.Row():
-        api_key = gr.Textbox(label="Google Books API Key", placeholder="Enter your API Key here")
+        api_key = gr.Textbox(label="Google API Key", placeholder="Enter your Google API Key here")
+
     with gr.Row():
         query = gr.Textbox(label="Describe the type of book you want", placeholder="e.g., I love space adventure novels")
+    
     with gr.Row():
         genre = gr.Textbox(label="Preferred Genre (Optional)", placeholder="e.g., Sci-Fi")
         author = gr.Textbox(label="Preferred Author (Optional)", placeholder="e.g., Isaac Asimov")
+
     submit = gr.Button("Get Recommendations 📚")
     output = gr.Markdown()
+
     submit.click(book_chatbot, inputs=[query, api_key, genre, author], outputs=output)
 
 demo.launch(share=True)
