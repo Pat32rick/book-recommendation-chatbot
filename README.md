@@ -1,5 +1,5 @@
 # book-recommendation-chatbot
-📖 AI Book Recommendation Chatbot
+📖 AI Book Recommendation Chatbot (Powered by Google Gemini)
 
 🚀 Overview
 
@@ -8,6 +8,8 @@ This AI-powered chatbot provides personalized book recommendations based on user
 FAISS vector search for local book suggestions
 
 Google Books API for real-time book retrieval
+
+Google Gemini API for AI-generated explanations
 
 Metadata filtering (genre & author) to refine results
 
@@ -23,11 +25,13 @@ The chatbot searches a local book database (FAISS).
 
 If not enough results, it fetches books from Google Books API.
 
-Book recommendations are displayed with descriptions and metadata.
+The chatbot uses Google Gemini API to generate a detailed recommendation response.
+
+Streaming response displays results dynamically.
 
 🌍 Live Demo
 
-Try it out here: [YOUR_HUGGINGFACE_SPACE_LINK]
+Try it out here: https://huggingface.co/spaces/Pat32rick/book-recommendation-chatbot
 
 🛠 Technologies Used
 
@@ -37,17 +41,19 @@ Sentence Transformers – Converts book descriptions into embeddings
 
 Google Books API – Fetches real-time book data
 
+Google Gemini API – Generates explanations for recommendations
+
 Gradio – Provides an interactive chatbot UI
 
-🔑 API Key Setup (For Live Search)
+🔑 API Key Setup (For Live Search & AI Generation)
 
-To use real-time book search, you need a Google Books API Key:
+To use real-time book search and AI-generated explanations, you need a Google API Key:
 
-Go to Google Cloud Console
+Go to Google AI Studio
 
-Enable Google Books API
+Click "Create API Key"
 
-Generate an API Key
+Copy your API Key
 
 Enter it when prompted in the chatbot UI
 
@@ -57,28 +63,20 @@ FAISS-based local search – Free
 
 Google Books API calls – ~$0.02 per request
 
+Google Gemini API calls – ~$0.005 per 1,000 tokens
+
 Estimated <$0.50 for testing
 
 📂 Project Structure
 
 📂 book-recommendation-chatbot
 │── app.py               # Main chatbot script
-│── requirements.txt     # Dependencies (FAISS, Gradio, etc.)
+│── requirements.txt     # Dependencies (FAISS, Gradio, Google APIs, etc.)
 │── README.md            # Project documentation
 
-🔧 Installation & Dependencies
+✅ Advanced LLM Techniques Implemented
 
-This project requires the following dependencies, which are listed in requirements.txt:
-
-gradio
-faiss-cpu
-sentence-transformers
-numpy
-requests
-
-To install them manually, run:
-
-pip install -r requirements.txt
+1️⃣ Hybrid Search – Combines FAISS (local search) with Google Books API2️⃣ Metadata Filtering – Filters books by genre & author3️⃣ Live Search Results – Uses Google Books API for real-time recommendations4️⃣ Streaming Responses – Uses Google Gemini API to stream responses token-by-token5️⃣ Context Caching – Stores recent queries to improve response efficiency
 
 🤖 Deployment on Hugging Face Spaces
 
